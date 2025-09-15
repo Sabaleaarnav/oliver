@@ -1,0 +1,58 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.env.*
+
+# Node/JS
+node_modules/
+dist/
+build/
+.cache/
+.next/
+out/
+coverage/
+
+# Data / models / artifacts (local-only stuff)
+data/
+data_local/
+datasets/
+checkpoints/
+models/
+artifacts/
+logs/
+wandb/
+mlruns/
+*.log
+
+# Binaries / archives
+*.so
+*.dll
+*.dylib
+*.o
+*.out
+*.exe
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# Media (comment out or use LFS if you need these versioned)
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.iso
+
+# Jupyter cruft
+.ipynb_checkpoints/
+ollama/id_ed25519
+ollama/id_ed25519.pub

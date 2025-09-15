@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+httpx
+pydantic
+python-dateutil
+ics
+chromadb
+ollama
+openai>=1.40.0

@@ -1,0 +1,50 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama:/root/.ollama
+    restart: unless-stopped
+
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma:/chroma
+    restart: unless-stopped
+
+  opentts:
+    image: synesthesiam/opentts:latest
+    container_name: opentts
+    ports:
+      - "5500:5500"
+    restart: unless-stopped
+
+  oliver-agent:
+    image: python:3.11-slim
+    container_name: oliver-agent
+    working_dir: /app
+    env_file:
+      - .env
+    command: >
+      bash -lc "apt-get update &&
+                apt-get install -y curl poppler-utils &&
+                pip install -r requirements.txt &&
+                uvicorn app:app --host 0.0.0.0 --port 8080"
+    volumes:
+      - ./agent:/app
+      - ./data:/data
+    ports:
+      - "8080:8080"
+    depends_on:
+      - ollama
+      - chroma
+      - opentts
+    restart: unless-stopped
+

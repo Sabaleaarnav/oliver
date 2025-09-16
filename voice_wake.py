@@ -2,7 +2,11 @@ import os, time, subprocess, tempfile, wave, requests
 import numpy as np, sounddevice as sd
 from scipy.signal import resample_poly
 from faster_whisper import WhisperModel
-from openwakeword import Model as WakeModel
+from openwakeword.model import Model as WakeModel
+
+# Ensure OWW models are present (downloads once to cache)
+import openwakeword
+openwakeword.utils.download_models()
 
 # --- config
 TARGET_SR   = 16000
@@ -22,7 +26,7 @@ def _detect_in_sr():
         return 48000
 
 IN_SR  = int(os.getenv("SD_INPUT_SR", _detect_in_sr()))
-BLOCK  = int(round(IN_SR * 0.032))     # ~32 ms blocks
+BLOCK  = int(round(IN_SR * 0.08))     # ~32 ms blocks
 RING_N = int(TARGET_SR * RING_SEC)
 
 wake = WakeModel()                      # bundled wakewords
@@ -60,7 +64,7 @@ def _top(scores: dict, n=3):
 print(f"Mic dev={IN_DEV or 'default'} IN_SR={IN_SR}, BLOCK={BLOCK} (~32 ms) → 16 kHz, ring={RING_SEC:.1f}s")
 print("Listening for: 'hey mycroft', 'hey jarvis', or 'alexa' (Ctrl+C to quit)")
 
-# ring buffer (1s @ 16 kHz)
+# ring buffer (1s @ 16 kHz) for RMS/diagnostics
 ring = np.zeros(RING_N, dtype=np.float32)
 
 def push_ring(x16: np.ndarray):
@@ -89,7 +93,8 @@ with sd.InputStream(channels=1, samplerate=IN_SR, blocksize=BLOCK, dtype="float3
         if now - last_dbg > 0.8:
             rms = float(np.sqrt(np.mean(ring**2)))
             interesting = {k:scores.get(k,0.0) for k in WAKE_KEYS}
-            print(f"rms={rms:.3f}  scores: {_top(interesting)}")
+            mx = max(interesting, key=lambda k: interesting.get(k,0.0))
+            print(f"rms={rms:.3f}  top={mx}:{interesting.get(mx,0.0):.3f}  scores: {_top(interesting)}")
             last_dbg = now
 
         if cooldown > now:
@@ -99,9 +104,12 @@ with sd.InputStream(channels=1, samplerate=IN_SR, blocksize=BLOCK, dtype="float3
             hot = max(WAKE_KEYS, key=lambda k: scores.get(k, 0.0))
             if scores.get(hot, 0.0) >= WAKE_THRESHOLD:
                 _speak("Yes?")
+                # Pause input stream while we record the utterance to avoid device contention
+                stream.abort()
                 rec = sd.rec(int(6*IN_SR), samplerate=IN_SR, channels=1, dtype="float32",
                              device=None if IN_DEV is None else int(IN_DEV))
                 sd.wait()
+                stream.start()
                 rec16 = _resample_to_16k(rec[:,0])
                 wav_path = _to_wav_16k(rec16)
                 text = _transcribe(wav_path)
